@@ -12,6 +12,16 @@
 
 float PI = 3.14159265358979323846;
 float distance = 0.5;
+bool keys_pressed[1024];
+float timer = 0.0;
+
+float red[3] = { 1, 0, 0 };
+float blue[3] = { 0, 0, 1 };
+float white[3] = { 1, 1, 1 };
+float black[3] = { 0, 0, 0 };
+float yellow[3] = { 1, 1, 0 };
+float purple[3] = { 1, 0, 1 };
+float green[3] = { 0, 1, 0 };
 
 struct Shape {
 	GLuint VAO;
@@ -21,15 +31,21 @@ struct Shape {
 GLuint setupVAO(float*, int, unsigned int*, int, float*);
 glm::mat4 getView();
 void check_pressed_keys();
-Shape getSquare(int x, int y, float*);
-Shape* getGrid(int i, int j);
+
 void drawGrid(Shape* grid, int i, int j);
 void drawShape(Shape shape);
+
+Shape getSquare(int x, int y, float*);
+Shape* getGrid(int i, int j);
+
 Shape extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors);
+
 Shape getCircle(glm::vec3 center, float* color);
 Shape getTriangle(glm::vec3 center, float* color);
 Shape getHexagon(glm::vec3 center, float* color);
-Shape getparallelogram(glm::vec3 center, float* color);
+Shape getParallelogram(glm::vec3 center, float* color);
+Shape getArrow(glm::vec3 center, float* color);
+Shape getStar(glm::vec3 center, float* color);
 
 glm::vec3 cameraPos = glm::vec3(0.0, 0.0, 50.0);  //xyz
 glm::vec3 cameraDirection = glm::vec3(0.0, 0.0, -1.0);  //vector indication direction camera points, used for movement relative to camera
@@ -37,11 +53,6 @@ glm::vec3 up = glm::vec3(0.0, 1.0, 0.0); //global up, used to recalculate camera
 glm::vec3 cameraRight = glm::cross(up, cameraDirection);  //right vector relative to camera, for relative movement
 glm::vec2 orientation(0.0, 0.0);  //store the camera rotation on the x and y axis
 glm::vec3 zaxis(0, 0, 1);
-
-bool keys_pressed[1024];
-float timer = 0.0;
-
-float circleColor[3] = { 1, 0, 0 };
 
 
 void runProgram(GLFWwindow* window)
@@ -64,12 +75,16 @@ void runProgram(GLFWwindow* window)
 	shader.makeBasicShader("../gloom/shaders/mvp.vert", "../gloom/shaders/colors.frag");
 	// Boolean for more simple activation or deactivaton of shader when testing
 	bool shaderON = true;
+
 	Shape* grid = getGrid(8, 5);
-	Shape circle = getCircle(glm::vec3(7, 4, distance), circleColor);
-	Shape triangle = getTriangle(glm::vec3(5, 2, distance), circleColor);
-	Shape hexagon = getHexagon(glm::vec3(0, 0, distance), circleColor);
-	Shape parallelogram = getparallelogram(glm::vec3(4, 1, distance), circleColor);
-	
+	Shape circle = getCircle(glm::vec3(7, 4, distance), red);
+	Shape triangle = getTriangle(glm::vec3(5, 2, distance), purple);
+	Shape hexagonWhite = getHexagon(glm::vec3(0, 0, distance), white);
+	Shape hexagonBlack = getHexagon(glm::vec3(1, 1, distance), black);
+	Shape parallelogram = getParallelogram(glm::vec3(4, 1, distance), green);
+	Shape arrow = getArrow(glm::vec3(6, 3, distance), yellow);
+	Shape star = getStar(glm::vec3(2, 2, distance), blue);
+
     // Rendering Loop
     while (!glfwWindowShouldClose(window))
     {
@@ -98,8 +113,11 @@ void runProgram(GLFWwindow* window)
 		drawGrid(grid, 8, 5);
 		drawShape(circle);
 		drawShape(triangle);
-		drawShape(hexagon);
+		drawShape(hexagonWhite);
+		drawShape(hexagonBlack);
 		drawShape(parallelogram);
+		drawShape(arrow);
+		drawShape(star);
 
 
 		if (shaderON){
@@ -411,18 +429,16 @@ Shape getCircle(glm::vec3 center, float* color) {
 Shape getTriangle(glm::vec3 center, float* color) {
 	Shape triangle;
 	float size = 0.3;
-	int verticesSize = 3 * 3;
-	int indicesSize = 3;
+	const int verticesSize = 3 * 3;
+	const int indicesSize = 3;
 
-	float* vertices = new float[verticesSize];
+	float vertices[verticesSize] = {
+		center.x, center.y + size, center.z,
+		center.x - size, center.y - size, center.z,
+		center.x + size, center.y - size, center.z
+	};
 
-	vertices[0] = center.x; vertices[1] = center.y + size; vertices[2] = center.z;
-	vertices[3] = center.x - size; vertices[4] = center.y - size; vertices[5] = center.z;
-	vertices[6] = center.x + size; vertices[7] = center.y - size; vertices[8] = center.z;
-
-	unsigned int* indices = new unsigned int[indicesSize];
-
-	indices[0] = 0; indices[1] = 1; indices[2] = 2;
+	unsigned int indices[indicesSize] = { 0, 1, 2 };
 
 	float* colors = new float[verticesSize];
 
@@ -432,8 +448,6 @@ Shape getTriangle(glm::vec3 center, float* color) {
 
 	triangle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 
-	delete[] vertices;
-	delete[] indices;
 	delete[] colors;
 
 	return triangle;
@@ -476,7 +490,7 @@ Shape getHexagon(glm::vec3 center, float* color) {
 }
 
 
-Shape getparallelogram(glm::vec3 center, float* color) {
+Shape getParallelogram(glm::vec3 center, float* color) {
 	Shape parallelogram;
 	float size = 0.3;
 	const int verticesSize = 4 * 3;
@@ -505,4 +519,90 @@ Shape getparallelogram(glm::vec3 center, float* color) {
 	delete[] colors;
 
 	return parallelogram;
+}
+
+
+Shape getArrow(glm::vec3 center, float* color) {
+	Shape arrow;
+	float size = 0.3;
+	const int verticesSize = 6 * 3;
+	const int indicesSize = 4 * 3;
+
+	float vertices[verticesSize] = {
+		center.x, center.y + size, center.z,
+		center.x - size, center.y - size, center.z,
+		center.x - size / 2, center.y - size, center.z,
+		center.x, center.y + size / 2, center.z,
+		center.x + size / 2, center.y - size, center.z,
+		center.x + size, center.y - size, center.z
+	};
+
+	unsigned int indices[indicesSize] = { 
+		0, 1, 3,
+		3, 1, 2,
+		3, 4, 5,
+		0, 3, 5
+	};
+
+	float* colors = new float[verticesSize];
+
+	for (int i = 0; i < verticesSize; i++) {
+		colors[i] = color[i % 3];
+	}
+
+	arrow = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+
+	delete[] colors;
+
+	return arrow;
+}
+
+
+Shape getStar(glm::vec3 center, float* color) {
+	Shape star;
+	float size = 0.3;
+	const int verticesSize = 10 * 3;
+	const int indicesSize = 8 * 3;
+
+	glm::vec3 rad = { 0, size, 0 };
+	glm::vec3 halfRad;
+	glm::mat3 rotate = glm::mat3(glm::rotate((float)2*PI/10, zaxis));
+	glm::mat3 scale = glm::mat3(glm::scale(glm::vec3(0.5, 0.5, 0.5)));
+	glm::vec3 pos;
+
+	float* vertices = new float[verticesSize];
+
+	for (int i = 0; i < 5; i++) {  // only count to 5 since we do 2 vertices at a time, and all 3 components each iteration
+		pos = center + rad;
+		vertices[6 * i] = pos.x; vertices[6 * i + 1] = pos.y; vertices[6 * i + 2] = pos.z;
+		rad = rotate * rad;
+		halfRad = scale * rad;
+		pos = center + halfRad;
+		vertices[6 * i + 3] = pos.x; vertices[6 * i + 4] = pos.y; vertices[6 * i + 5] = pos.z;
+		rad = rotate * rad;
+	}
+
+	unsigned int indices[indicesSize] = { 
+		0, 1, 9,
+		2, 3, 1,
+		4, 5, 3,
+		6, 7, 5,
+		8, 9, 7,
+		1, 5, 9,
+		1, 3, 5,
+		9, 5, 7
+	};
+
+	float* colors = new float[verticesSize];
+
+	for (int i = 0; i < verticesSize; i++) {
+		colors[i] = color[i % 3];
+	}
+
+	star = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+
+	delete[] vertices;
+	delete[] colors;
+
+	return star;
 }
