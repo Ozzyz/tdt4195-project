@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from thresh import blur_threshold_close
 
-
-def template_single_region()
+def template_single_region():
     img = cv2.imread('images/easy01.png',0)
     img2 = img.copy()
     template = cv2.imread('images/hexagon.png',0)
@@ -41,20 +41,31 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-def template_multiple_regions() 
-    img_rgb = cv2.imread('images/easy01.png')
-    img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
-    template = cv2.imread('images/hexagon.png',0)
+def template_multiple_regions(img_rgb, img_thresh, template_fp): 
+    
+   # img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    template = cv2.imread(template_fp,0)
     w, h = template.shape[::-1]
 
-    res = cv2.matchTemplate(img_gray,template,cv2.TM_CCOEFF_NORMED)
+    res = cv2.matchTemplate(img_thresh,template,cv2.TM_CCOEFF_NORMED)
     print(res)
     # TODO: Set this, so that every shape will be marked by templating
-    threshold = 0.5
+    threshold = 0.35
     loc = np.where( res >= threshold)
     print(str(loc[0]))
     for  pt in zip(*loc[::-1]):
-        cv2.rectangle(img_rgb, pt, (pt[0] + w, pt[1] + h), (0,0,255), 2)
+        cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), (0,0,255), 2)
+    plot_image(img_thresh)
+    #cv2.imwrite('res.png',img)
 
-    cv2.imwrite('res.png',img_rgb)
+
+def plot_image(image, cmap=plt.cm.gray):
+    plt.figure()
+    plt.imshow(image, cmap=cmap)
+    plt.show()
     
+img = cv2.imread('images/easy01.png')
+new_img = blur_threshold_close(img)
+
+template_fp = 'images/pacman.png'
+template_multiple_regions(img, new_img,  template_fp)
