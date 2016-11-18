@@ -36,7 +36,8 @@ def create_shape_contours():
     contour_dict = {}
     for name in names:
         img = cv2.imread(fp+name+f_extension)
-        contours[name] = img
+        _, cnt, _ = cv2.findContours(img, 1 ,2)
+        contours[name] = cnt
     return contour_dict
     
 
