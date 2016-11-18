@@ -48,12 +48,15 @@ def make_image(points, old_img):
     return new_img
 
 def blur_threshold_close(img):
-    gray = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
-    blur = cv2.medianBlur(gray, 9)
-    
+    gray = cv2.cvtColor(img,cv2.COLOR_RGBA2GRAY)
+    #blur = cv2.medianBlur(gray, 7)
+    blur = cv2.bilateralFilter(gray, 7, 75, 75)
+    blur = 255 - blur
+
     #ret, th2 = cv2.threshold(blur,127,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    th = 255 - cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_MEAN_C,\
-                cv2.THRESH_BINARY, 11,2)
+    th = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,\
+            cv2.THRESH_BINARY_INV, 13,2)
+    kernel = np.ones((3,3), np.uint8)
     new = cv2.dilate(th, np.ones((3,3), np.uint8), iterations=0)
     new = cv2.erode(new, np.ones((3,3), np.uint8), iterations=0)
     new = cv2.dilate(new, np.ones((3,3), np.uint8), iterations=0)
@@ -63,6 +66,18 @@ def blur_threshold_close(img):
             iterations=0)	
     
     return new
+
+def canny_test(img):
+    denoised = cv2.fastNlMeansDenoisingColored(img, None, 30, 10, 7, 21)
+    #filtered = cv2.bilateralFilter(denoised, 9, 75, 75) 
+    gray = cv2.cvtColor(denoised, cv2.COLOR_RGB2GRAY)
+    th = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,\
+            cv2.THRESH_BINARY_INV, 11, 2)
+    th2 = cv2.morphologyEx(th, cv2.MORPH_CLOSE, np.ones((3,3),np.uint8),
+            iterations=1)	
+    result = cv2.Canny(th, 100, 255)
+    return th
+
 
 def testing():
     img = cv2.imread('images/easy01.png')
@@ -78,17 +93,16 @@ def testing():
     im2, c, h = cv2.findContours(th_copy, 1, 2)
     #cv2.drawContours(img_copy, c, -1, (0,255,0), 3)
 
-    real_contours = [cnt for cnt in c if 100 < cv2.contourArea(cnt) < 5000]
+    real_contours = [cnt for cnt in c if 100 < cv2.contourArea(cnt) < 8000]
     cv2.drawContours(img_copy, real_contours, -1, (0, 255, 0), 3)
 
     for c in real_contours:
         print(cv2.contourArea(c))
     
+    # more testing
+    can = canny_test(img)
 
-    # region grow
-    region_grow(img, points, )
-
-    out = test
+    out = img
     plt.figure()
     plt.imshow(out, cmap=plt.cm.gray)
     plt.show()
@@ -96,13 +110,16 @@ def testing():
 def more_testing():
     im_in = cv2.imread("images/easy01.png");
     gray = cv2.cvtColor(im_in, cv2.COLOR_RGB2GRAY)
-
+    gray = cv2.medianBlur(gray, 5)
+    gray = 255 - gray
     # Threshold.
     # Set values equal to or above 220 to 0.
     # Set values below 220 to 255.
-    th, im_th = cv2.threshold(gray, 0, 255,
-            cv2.THRESH_BINARY+cv2.THRESH_OTSU);
-     
+    #th, im_th = cv2.threshold(gray, 20, 255,
+    #        cv2.THRESH_BINARY+cv2.THRESH_OTSU);
+    im_th = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_MEAN_C,\
+                cv2.THRESH_BINARY_INV, 11,2)
+    
     # Copy the thresholded image.
     im_floodfill = im_th.copy()
      
@@ -112,8 +129,9 @@ def more_testing():
     mask = np.zeros((h+2, w+2), np.uint8)
      
     # Floodfill from point list
-    points = [(355,150), (555, 44), (355, 254), (656, 248), (147, 250), (144,
-        450), (460, 455), (770, 450), (757, 50)]
+    #points = [(355, 43), (434, 22), (759, 43), (144, 144), ]
+    
+    points = [(355,150)]
     for point in points:
         cv2.floodFill(im_floodfill, mask, point, 255);
      
@@ -184,7 +202,15 @@ def grow_testing():
 
 
 def main():
-    grow_testing()
+    #grow_testing()
+    #more_testing()
+    testing()
+    #img = cv2.imread("images/easy01.png")
+    #lab = cv2.cvtColor(img, cv2.COLOR_RGB2Lab)
+    #cv2.imshow("lab", lab)
+    #cv2.waitKey()
+
+
 
 if __name__ == "__main__":
 	main()
