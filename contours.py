@@ -68,12 +68,15 @@ def match_shape(contour):
     return "Unknown shape"
 
 def read_seeds(filepath):
+    """Return a list of tuples containing seed points, read from a file
+    """
     a =  [line.strip().replace(",","").split() for line in open(filepath).readlines()]
     return [(int(b[0]), int(b[1])) for b in a]
 
 if __name__ == "__main__":
-    img = cv2.imread("images/difficult01.png")
-    seeds = read_seeds("seeds_difficult01.txt")
+    import sys
+    img = cv2.imread(sys.argv[1])
+    seeds = read_seeds(sys.argv[2])
     print(seeds)
     grown = region_grow(img, seeds, 40)
     c = filter_contours(find_contours(grown))
