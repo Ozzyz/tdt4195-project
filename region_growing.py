@@ -70,9 +70,4 @@ seeds = [(355,150), (355, 254), (355, 43), (434, 22), (760, 39), (746, 70), (742
 img = cv2.imread('images/easy01.png')
 img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
 new_img = region_grow(img, seeds, 40)
-print(new_img.shape)
-#print(new_img)
-plt.figure()
 
-plt.imshow(new_img, cmap=plt.cm.gray)
-plt.show()
