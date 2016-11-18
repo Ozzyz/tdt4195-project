@@ -25,6 +25,9 @@ if __name__ == "__main__":
     c = find_contours(grown)
     c_img = draw_contours(img, c)
     plt.figure()
-    plt.imshow(c_img, cmap=plt.cm.gray)
+    plt.imshow(grown, cmap=plt.cm.gray)
     plt.show()
-
+    
+    for cnt in c:
+        M = cv2.moments(cnt)
+        print(M)
