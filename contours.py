@@ -51,21 +51,23 @@ def show_contoured_image(img):
     cv2.waitKey()
 
 def ratio(cnt):
-    return cv2.contourArea(cnt) / cv2.arcLength(cnt, True)
-
+    y,x,w,h = cv2.boundingRect(cnt)
+    return (w*h - cv2.contourArea(cnt)) / cv2.arcLength(cnt, True)
+    
 def match_shape(contour):
     shapes = {
-        "arrow": (0.0, 5.0),
-        "star": (6.0, 9.0),
+        "arrow": (0.0, 6.0),
+        "star": (8.5, 9.5),
         "triangle": (10.0, 10.15),
-        "pacman": (10.2, 10.3),
+        "pacman": (10.2, 10.6),
         "trapezoid": (13.0, 14.0),
         "hexagon": (14.9, 15.6)
     }
+
     for name, value in shapes.items():
         if value[0] < ratio(contour) < value[1]:
-            return name
-    return "Unknown shape"
+            return name, ratio(contour)
+    return "Unknown shape", ratio(contour)
 
 def read_seeds(filepath):
     """Return a list of tuples containing seed points, read from a file
@@ -76,17 +78,21 @@ def read_seeds(filepath):
 if __name__ == "__main__":
     import sys
     img = cv2.imread(sys.argv[1])
+    #img = cv2.medianBlur(img, 5)
     seeds = read_seeds(sys.argv[2])
-    print(seeds)
     grown = region_grow(img, seeds, 40)
     c = filter_contours(find_contours(grown))
-    c_img = draw_contours(img, c)
+    c_img = draw_contours(img, [cnt for cnt in c])
     centroids = find_centroids(c)
+    print(centroids)
     img_with_centroids = draw_centroids(img, centroids)
 
+    matches = []
     for cnt in c:
-        print(match_shape(cnt))
-
+        matches.append(match_shape(cnt))
+    import pprint
+    pprint.PrettyPrinter().pprint(sorted(matches, key=lambda x: x[1]))
+    
     cv2.imshow("asd", c_img)
     cv2.waitKey()
 

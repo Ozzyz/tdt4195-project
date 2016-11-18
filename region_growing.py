@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from thresh import blur_threshold_close
 from queue import Queue as Q
 import cv2
 import numpy as np
