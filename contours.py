@@ -30,12 +30,16 @@ def find_centroids(contours):
     return centroids
 
 def draw_centroids(img, centroids, radius=5, color=(255,0,0)):
+    """Return a new image with circles for every centroid.
+    """
     img_copy = img.copy()
     for c in centroids:
         cv2.circle(img_copy, c, radius, color, -1)
     return img_copy
 
 def filter_contours(contours, low=50, high=10000):
+    """Return a new list of contours, filtered by area between low and high
+    """
     return [cnt for cnt in contours \
             if low < cv2.contourArea(cnt) < high]
 
