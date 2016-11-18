@@ -65,7 +65,6 @@ def filter_contours(contours, low=50, high=10000):
     """
     return [cnt for cnt in contours \
             if low < cv2.contourArea(cnt) < high]
->>>>>>> fcfaba3504d52577925d928e76518249424a7ac6
 
 if __name__ == "__main__":
     img = cv2.imread("images/easy01.png")
