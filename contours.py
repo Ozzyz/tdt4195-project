@@ -17,30 +17,6 @@ def draw_contours(img, contours):
     cv2.drawContours(img_copy, contours, -1, (0, 255, 0), 3)
     return img_copy
 
-
-def match_shape(shapes, contour):
-    # In: A dictionary of shapes that will be matched
-    # with a given contour. The output will be the name of the shape
-    match_vals = []
-    for shape in shapes:
-        res = cv2.matchShapes(contour, shapes[shape], 1, 0, 0)
-        match_vals.append((res, shape))
-    # Compare matching score of shapes, which is first in the list
-    best_matching_shape = min(match_vals, key= lambda x: x[0])
-    return best_matching_shape[0]
-
-def create_shape_contours():
-    fp = "images/"
-    names = ["star", "trapezoid_horisontal", "trapezoid_vertical", "pacman", "hexagon", "arrow", "triangle"]
-    f_extension = ".png"
-    contour_dict = {}
-    for name in names:
-        img = cv2.imread(fp+name+f_extension)
-        _, cnt, _ = cv2.findContours(img, 1 ,2)
-        contours[name] = cnt
-    return contour_dict
-    
-
 def find_centroids(contours):
     """Return list of centroids from contours
     """
@@ -67,16 +43,48 @@ def filter_contours(contours, low=50, high=10000):
     return [cnt for cnt in contours \
             if low < cv2.contourArea(cnt) < high]
 
+def show_contoured_image(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    c = find_contours(gray)
+    c_img = draw_contours(img, c)
+    cv2.imshow("asd", c_img)
+    cv2.waitKey()
+
+def ratio(cnt):
+    return cv2.contourArea(cnt) / cv2.arcLength(cnt, True)
+
+def match_shape(contour):
+    shapes = {
+        "arrow": (0.0, 5.0),
+        "star": (6.0, 9.0),
+        "triangle": (10.0, 10.15),
+        "pacman": (10.2, 10.3),
+        "trapezoid": (13.0, 14.0),
+        "hexagon": (14.9, 15.6)
+    }
+    for name, value in shapes.items():
+        if value[0] < ratio(contour) < value[1]:
+            return name
+    return "Unknown shape"
+
+def read_seeds(filepath):
+    a =  [line.strip().replace(",","").split() for line in open(filepath).readlines()]
+    return [(int(b[0]), int(b[1])) for b in a]
+
 if __name__ == "__main__":
-    img = cv2.imread("images/easy01.png")
-    seeds = [(149, 449), (141, 247), (355,150), (355, 254), (355, 43), (434, 22), (760, 39), (746, 70), (742, 26), (759, 438), (145, 148), (549, 153), (660, 252), (251, 346), (357, 349), (652, 355), (52, 451), (455, 447)]
+    img = cv2.imread("images/difficult01.png")
+    seeds = read_seeds("seeds_difficult01.txt")
+    print(seeds)
     grown = region_grow(img, seeds, 40)
-    c = filter_contours(find_contours(grown), 50, 10000)
+    c = filter_contours(find_contours(grown))
     c_img = draw_contours(img, c)
     centroids = find_centroids(c)
     img_with_centroids = draw_centroids(img, centroids)
 
-    cv2.imshow("asd", img_with_centroids)
+    for cnt in c:
+        print(match_shape(cnt))
+
+    cv2.imshow("asd", c_img)
     cv2.waitKey()
 
     
