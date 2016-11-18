@@ -66,13 +66,15 @@ def get_neighbours(pixel, img):
                 neighbours.add((i, j))
     return neighbours
                             
-seeds = [(355,150), (355, 254), (355, 43), (434, 22), (760, 39), (746, 70), (742, 26), (759, 438), (145, 148), (549, 153), (660, 252), (251, 346), (357, 349), (652, 355), (52, 451), (455, 447)]        
-img = cv2.imread('images/easy01.png')
-img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
+if __name__ == "__main__":
+    
+    seeds = [(355,150), (355, 254), (355, 43), (434, 22), (760, 39), (746, 70), (742, 26), (759, 438), (145, 148), (549, 153), (660, 252), (251, 346), (357, 349), (652, 355), (52, 451), (455, 447)]        
+    img = cv2.imread('images/easy01.png')
+    img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
 
-new_img = region_grow(img, seeds, 40)
-plot_image(new_img)
-_, new_img = cv2.threshold(new_img,127,255,0)
-cont = find_contours(new_img)
-cont_image = draw_contours(new_img, cont)
-plot_image(cont_image)
+    new_img = region_grow(img, seeds, 40)
+    plot_image(new_img)
+    _, new_img = cv2.threshold(new_img,127,255,0)
+    cont = find_contours(new_img)
+    cont_image = draw_contours(new_img, cont)
+    plot_image(cont_image)
