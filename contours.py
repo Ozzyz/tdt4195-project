@@ -33,7 +33,7 @@ def draw_centroids(img, centroids, radius=5, color=(255,0,0)):
         cv2.circle(img_copy, c, radius, color, -1)
     return img_copy
 
-def filter_contours(contours, low=100, high=10000):
+def filter_contours(contours, low=400, high=10000):
     """Return a new list of contours, filtered by area between low and high
     """
     return [cnt for cnt in contours \
@@ -105,6 +105,7 @@ if __name__ == "__main__":
     
     # Find all contours
     contours = find_contours(grown)
+    image_before_filter = draw_contours(img, contours)
 
     filtered_contours = filter_contours(contours)
     
@@ -130,6 +131,7 @@ if __name__ == "__main__":
         x,y = m[1]
         cv2.putText(img_shapes, m[0], (x-25, y), cv2.FONT_ITALIC, 0.4, (0,255,0))
     cv2.imshow("test", img_shapes)
+    cv2.imshow("after contour filter", contoured_img)
     cv2.waitKey()
    
     # Show image
