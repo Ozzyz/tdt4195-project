@@ -118,7 +118,8 @@ if __name__ == "__main__":
     import pprint
     pprint.PrettyPrinter().pprint(sorted(matches, key=lambda x: x[0]))
     
-    with open(sys.argv[1]+".txt", "w") as f:
+    fn = sys.argv[1].split("/")
+    with open("shapes_and_centroids/" + fn[1] + ".txt", "w") as f:
         for m in matches:
             f.write(str(m)+"\n")
 
