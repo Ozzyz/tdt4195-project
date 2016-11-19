@@ -107,8 +107,8 @@ if __name__ == "__main__":
     
     # Find all contours
     contours = find_contours(grown)
-    image_before_filter = draw_contours(img, contours)
-
+    
+    # Filter contours
     filtered_contours = filter_contours(contours)
     
     # Draw contours
@@ -117,10 +117,9 @@ if __name__ == "__main__":
     # Match shapes
     matches = [( match_shape(cnt), find_centroid(cnt) ) for cnt in filtered_contours]
 
-    import pprint
-    pprint.PrettyPrinter().pprint(sorted(matches, key=lambda x: x[0]))
-    
-    with open(sys.argv[1]+".txt", "w") as f:
+    # Write output files
+    fn = sys.argv[1].split("/")
+    with open("shapes_and_centroids/" + fn[1] + ".txt", "w") as f:
         for m in matches:
             f.write(str(m)+"\n")
 
@@ -132,13 +131,9 @@ if __name__ == "__main__":
     for m in matches:
         x,y = m[1]
         cv2.putText(img_shapes, m[0], (x-25, y), cv2.FONT_ITALIC, 0.4, (0,255,0))
-    cv2.imshow("test", img_shapes)
-    cv2.imshow("after contour filter", contoured_img)
-    cv2.waitKey()
    
-    # Show image
-    #plot(grown, "region grown")
-    #cv2.imshow("contoured image", contoured_img)
-    #cv2.imshow("image with centroids", img_centroids)
-    #cv2.waitKey()
+    # Display images
+    cv2.imshow("shapes", img_shapes)
+    cv2.imshow("asdasda", contoured_img)
+    cv2.waitKey()
 
