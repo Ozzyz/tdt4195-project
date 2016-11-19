@@ -17,17 +17,13 @@ def draw_contours(img, contours):
     cv2.drawContours(img_copy, contours, -1, (0, 255, 0), 3)
     return img_copy
 
-def find_centroids(contours):
-    """Return list of centroids from contours
+def find_centroid(contour):
+    """Return centroid from a contour
     """
-    img_copy = img.copy()
-    centroids = []
-    for cnt in contours:
-        M = cv2.moments(cnt)
-        cx = int(M["m10"]/M["m00"])
-        cy = int(M["m01"]/M["m00"])
-        centroids.append((cx, cy))
-    return centroids
+    M = cv2.moments(contour)
+    cx = int(M["m10"]/M["m00"])
+    cy = int(M["m01"]/M["m00"])
+    return (cx, cy)
 
 def draw_centroids(img, centroids, radius=5, color=(255,0,0)):
     """Return a new image with circles for every centroid.
@@ -53,10 +49,13 @@ def show_contoured_image(img):
 def ratio(cnt): 
     epsilon = 0.04 * cv2.arcLength(cnt, True)
     approx = cv2.approxPolyDP(cnt, epsilon, True) 
+    vertices = len(approx)
     ratio = cv2.contourArea(cnt) / cv2.arcLength(cnt, True)
-    return len(approx), ratio
+    return vertices, ratio
 
 def match_shape(contour):
+    """Return name of a shape based on its contours
+    """
     vertices, rat = ratio(contour)
     if vertices == 3:
         shape = "Triangle"
@@ -72,7 +71,7 @@ def match_shape(contour):
             shape = "Star"
     else:
         shape = "Pacman"
-    return shape, vertices, rat
+    return shape
 
 
 def read_seeds(filepath):
@@ -81,52 +80,53 @@ def read_seeds(filepath):
     a =  [line.strip().replace(",","").split() for line in open(filepath).readlines()]
     return [(int(b[0]), int(b[1])) for b in a]
 
+def plot(img, title, cm=plt.cm.gray):
+    plt.figure()
+    plt.imshow(img, cmap=cm)
+    plt.axis("off")
+    plt.title(title)
+    plt.show()
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) == 4:
         img = cv2.imread(sys.argv[1])
         seeds = read_seeds(sys.argv[2])
+        threshold = int(sys.argv[3])
     else:
-        print("Usage: contours.py <imagepath> <seedspath>")
+        print("Usage: contours.py <imagepath> <seedspath> <threshold>")
         sys.exit()
     
-    a = 0
-    b = 100
-
+    # Blur
     img = cv2.GaussianBlur(img, (5,5), 0)
+
     # Region grow
-    grown = region_grow(img, seeds, int(sys.argv[3]))
-    plt.figure()
-    plt.imshow(grown, cmap=plt.cm.gray)
-    plt.show()
+    grown = region_grow(img, seeds, threshold)
+    
     # Find all contours
-    contours = filter_contours(find_contours(grown))
+    contours = find_contours(grown)
+
+    filtered_contours = filter_contours(contours)
     
     # Draw contours
-    contoured_img = draw_contours(img, [cnt for cnt in contours if 
-       a < ratio(cnt)[0] < b ])
+    contoured_img = draw_contours(img, filtered_contours)
     
-    # Find centroids 
-    centroids = find_centroids(contours)
-    
-    # Draw centroids
-    img_with_centroids = draw_centroids(img, centroids)
-
     # Match shapes
-    matches = []
-    for cnt in contours:
-        c, wh, a = cv2.minAreaRect(cnt)
-        bnd_rect_diff = wh[0]*wh[1] - cv2.contourArea(cnt) 
-        print("bnd_rect_diff: {}\tarclength: {}\tcontourArea:\
-            {}".format(int(bnd_rect_diff), int(cv2.arcLength(cnt, True)),
-                int(cv2.contourArea(cnt))))
-        matches.append(match_shape(cnt))
+    matches = [( match_shape(cnt), find_centroid(cnt) ) for cnt in filtered_contours]
+
     import pprint
     pprint.PrettyPrinter().pprint(sorted(matches, key=lambda x: x[0]))
+    
+    with open(sys.argv[1]+".txt", "w") as f:
+        for m in matches:
+            f.write(str(m)+"\n")
+
+    # Draw centroids
+    img_centroids = draw_centroids(img, [m[1] for m in matches])
    
     # Show image
-    cv2.imshow("asd", contoured_img)
-    cv2.waitKey()
-
-    
+    #plot(grown, "region grown")
+    #cv2.imshow("contoured image", contoured_img)
+    #cv2.imshow("image with centroids", img_centroids)
+    #cv2.waitKey()
 
