@@ -1,0 +1,16 @@
+Star 246 459
+Star 550 447
+Triangle 448 440
+Pacman 41 453
+Arrow 348 450
+Paralellogram 650 447
+Paralellogram 153 449
+Paralellogram 751 450
+Hexagon 350 355
+Hexagon 556 351
+Hexagon 247 352
+Hexagon 144 350
+Hexagon 448 346
+Hexagon 52 348
+Hexagon 758 343
+Hexagon 642 341

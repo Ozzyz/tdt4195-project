@@ -66,9 +66,12 @@ void moveSelected(glm::vec3 direction);
 void select();
 float getTimeDeltaSeconds();
 
+void splitAll(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> split(const std::string &s, char delim);
+
 std::vector<Shape*> shapes;
 
-glm::vec3 cameraPos = glm::vec3(0.0, 0.0, 50.0);  //xyz
+glm::vec3 cameraPos = glm::vec3(7.0, 5.0, 20.0);  //xyz
 glm::vec3 cameraDirection = glm::vec3(0.0, 0.0, -1.0);  //vector indication direction camera points, used for movement relative to camera
 glm::vec3 up = glm::vec3(0.0, 1.0, 0.0); //global up, used to recalculate cameraRight
 glm::vec3 down = glm::vec3(0.0, -1.0, 0.0);
@@ -80,6 +83,47 @@ glm::vec3 zaxis(0, 0, 1);
 
 void runProgram(GLFWwindow* window)
 {
+	// Get input file
+	std::ifstream in_file("../gloom/src/easy01.png.txt");
+	std::string line;
+
+	// For each line
+	while (getline(in_file, line)) {
+		// Split line on each space 
+		std::vector<std::string> line_content = split(line, ' ');
+		// Extract contents
+		std::string name = line_content.at(0);
+		float x = atof(line_content.at(1).c_str()) - 50;
+		x = round(x / 100);
+		float y = atof(line_content.at(2).c_str())-50;
+		y = round((400-y) / 100);
+
+		if (name == "Pacman") {
+			shapes.push_back(getCircle(glm::vec3(x, y, distance), red));
+		}
+
+		else if (name == "Triangle") {
+			shapes.push_back(getTriangle(glm::vec3(x, y, distance), purple));
+		}
+
+		else if (name == "Hexagon") {
+			shapes.push_back(getHexagon(glm::vec3(x, y, distance), white));
+		}
+
+		else if (name == "Star") {
+			shapes.push_back(getStar(glm::vec3(x, y, distance), blue));
+		}
+
+		else if (name == "Paralellogram") {
+			shapes.push_back(getParallelogram(glm::vec3(x, y, distance), green));
+		}
+
+		else if (name == "Arrow") {
+			shapes.push_back(getArrow(glm::vec3(x, y, distance), yellow));
+		}
+	}
+
+
     // Set GLFW callback mechanism(s)
     glfwSetKeyCallback(window, keyboardCallback);
 
@@ -103,14 +147,6 @@ void runProgram(GLFWwindow* window)
 	Shape* grid = getGrid(8, 5);
 
 	selector.model = glm::translate(glm::vec3(0, 0, 0.6))*glm::scale(glm::vec3(0.2));
-
-	shapes.push_back(getCircle(glm::vec3(7, 4, distance), red));
-	shapes.push_back(getTriangle(glm::vec3(5, 2, distance), purple));
-	shapes.push_back(getHexagon(glm::vec3(0, 0, distance), white));
-	shapes.push_back(getHexagon(glm::vec3(1, 1, distance), black));
-	shapes.push_back(getParallelogram(glm::vec3(4, 1, distance), green));
-	shapes.push_back(getArrow(glm::vec3(6, 3, distance), yellow));
-	shapes.push_back(getStar(glm::vec3(2, 2, distance), blue));
 
     // Rendering Loop
     while (!glfwWindowShouldClose(window))
@@ -754,4 +790,20 @@ float getTimeDeltaSeconds() {
 
 	// Return the calculated time delta in seconds
 	return (float)timeDeltaSeconds;
+}
+
+
+std::vector<std::string> split(const std::string &s, char delim) {
+	std::vector<std::string> elems;
+	splitAll(s, delim, elems);
+	return elems;
+}
+
+void splitAll(const std::string &s, char delim, std::vector<std::string> &elems) {
+	std::stringstream ss;
+	ss.str(s);
+	std::string item;
+	while (std::getline(ss, item, delim)) {
+		elems.push_back(item);
+	}
 }
