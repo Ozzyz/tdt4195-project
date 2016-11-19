@@ -89,6 +89,18 @@ def plot(img, title, cm=plt.cm.gray):
     plt.title(title)
     plt.show()
 
+def write_to_file(shapes_and_centroids):
+   
+    # Write output files
+    fn = sys.argv[1].split("/")
+    with open("shapes_and_centroids/" + fn[1] + ".txt", "w") as f:
+        for item in shapes_and_centroids:
+            shape, centroid = item
+            x, y = centroid
+            f.write(shape + " " + str(x) + " " + str(y) + "\n")
+
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) == 4:
@@ -117,14 +129,11 @@ if __name__ == "__main__":
     # Match shapes
     matches = [( match_shape(cnt), find_centroid(cnt) ) for cnt in filtered_contours]
 
-    # Write output files
-    fn = sys.argv[1].split("/")
-    with open("shapes_and_centroids/" + fn[1] + ".txt", "w") as f:
-        for m in matches:
-            f.write(str(m)+"\n")
-
     # Draw centroids
     img_centroids = draw_centroids(img, [m[1] for m in matches])
+
+    # Write to file
+    write_to_file(matches)
 
     # Draw shape matches
     img_shapes = img.copy()
@@ -133,7 +142,7 @@ if __name__ == "__main__":
         cv2.putText(img_shapes, m[0], (x-25, y), cv2.FONT_ITALIC, 0.4, (0,255,0))
    
     # Display images
-    cv2.imshow("shapes", img_shapes)
-    cv2.imshow("asdasda", contoured_img)
-    cv2.waitKey()
+    #cv2.imshow("shapes", img_shapes)
+    #cv2.imshow("asdasda", contoured_img)
+    #cv2.waitKey()
 
