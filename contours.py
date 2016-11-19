@@ -68,9 +68,9 @@ def match_shape(contour):
         if rat > 12:
             shape = "Hexagon"
         else:
-            shape = "Star"
+            shape = "Pacman"
     else:
-        shape = "Pacman"
+        shape = "Star"
     return shape
 
 
@@ -123,6 +123,14 @@ if __name__ == "__main__":
 
     # Draw centroids
     img_centroids = draw_centroids(img, [m[1] for m in matches])
+
+    # Draw shape matches
+    img_shapes = img.copy()
+    for m in matches:
+        x,y = m[1]
+        cv2.putText(img_shapes, m[0], (x-25, y), cv2.FONT_ITALIC, 0.4, (0,255,0))
+    cv2.imshow("test", img_shapes)
+    cv2.waitKey()
    
     # Show image
     #plot(grown, "region grown")
