@@ -9,6 +9,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <vector>
+#include <string>
+#include <sstream>
+#include <fstream>
+#include <vector>
+#include <chrono>
 
 float PI = 3.14159265358979323846;
 float distance = 0.5;
@@ -26,6 +31,8 @@ float green[3] = { 0, 1, 0 };
 struct Shape {
 	GLuint VAO;
 	int indicesSize;
+	glm::mat4 model = glm::mat4(1.0);
+	float distanceLeft = 0.0;
 };
 
 GLuint setupVAO(float*, int, unsigned int*, int, float*);
@@ -33,19 +40,23 @@ glm::mat4 getView();
 void check_pressed_keys();
 
 void drawGrid(Shape* grid, int i, int j);
-void drawShape(Shape shape);
+void drawShape(Shape* shape);
 
 Shape getSquare(int x, int y, float*);
 Shape* getGrid(int i, int j);
 
-Shape extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors);
+Shape* extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors);
 
-Shape getCircle(glm::vec3 center, float* color);
-Shape getTriangle(glm::vec3 center, float* color);
-Shape getHexagon(glm::vec3 center, float* color);
-Shape getParallelogram(glm::vec3 center, float* color);
-Shape getArrow(glm::vec3 center, float* color);
-Shape getStar(glm::vec3 center, float* color);
+Shape* getCircle(glm::vec3 center, float* color);
+Shape* getTriangle(glm::vec3 center, float* color);
+Shape* getHexagon(glm::vec3 center, float* color);
+Shape* getParallelogram(glm::vec3 center, float* color);
+Shape* getArrow(glm::vec3 center, float* color);
+Shape* getStar(glm::vec3 center, float* color);
+void moveShape(Shape* shape, glm::vec3 direction, float time);
+float getTimeDeltaSeconds();
+
+std::vector<Shape*> shapes;
 
 glm::vec3 cameraPos = glm::vec3(0.0, 0.0, 50.0);  //xyz
 glm::vec3 cameraDirection = glm::vec3(0.0, 0.0, -1.0);  //vector indication direction camera points, used for movement relative to camera
@@ -77,13 +88,14 @@ void runProgram(GLFWwindow* window)
 	bool shaderON = true;
 
 	Shape* grid = getGrid(8, 5);
-	Shape circle = getCircle(glm::vec3(7, 4, distance), red);
-	Shape triangle = getTriangle(glm::vec3(5, 2, distance), purple);
-	Shape hexagonWhite = getHexagon(glm::vec3(0, 0, distance), white);
-	Shape hexagonBlack = getHexagon(glm::vec3(1, 1, distance), black);
-	Shape parallelogram = getParallelogram(glm::vec3(4, 1, distance), green);
-	Shape arrow = getArrow(glm::vec3(6, 3, distance), yellow);
-	Shape star = getStar(glm::vec3(2, 2, distance), blue);
+
+	shapes.push_back(getCircle(glm::vec3(7, 4, distance), red));
+	shapes.push_back(getTriangle(glm::vec3(5, 2, distance), purple));
+	shapes.push_back(getHexagon(glm::vec3(0, 0, distance), white));
+	shapes.push_back(getHexagon(glm::vec3(1, 1, distance), black));
+	shapes.push_back(getParallelogram(glm::vec3(4, 1, distance), green));
+	shapes.push_back(getArrow(glm::vec3(6, 3, distance), yellow));
+	shapes.push_back(getStar(glm::vec3(2, 2, distance), blue));
 
     // Rendering Loop
     while (!glfwWindowShouldClose(window))
@@ -108,17 +120,16 @@ void runProgram(GLFWwindow* window)
 			glUniformMatrix4fv(4, 1, GL_FALSE, glm::value_ptr(projection));
 		}
 
-		glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0)));
-
 		drawGrid(grid, 8, 5);
-		drawShape(circle);
-		drawShape(triangle);
-		drawShape(hexagonWhite);
-		drawShape(hexagonBlack);
-		drawShape(parallelogram);
-		drawShape(arrow);
-		drawShape(star);
 
+		float time = getTimeDeltaSeconds();
+		timer += time;
+		
+		for (Shape* shape : shapes) {
+			moveShape(shape, up, time);
+			glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(shape->model));
+			drawShape(shape);
+		}
 
 		if (shaderON){
 		shader.deactivate();
@@ -246,9 +257,9 @@ void check_pressed_keys() {
 }
 
 
-void drawShape(Shape shape) {
-	glBindVertexArray(shape.VAO);
-	glDrawElements(GL_TRIANGLES, shape.indicesSize, GL_UNSIGNED_INT, (void*)0);
+void drawShape(Shape* shape) {
+	glBindVertexArray(shape->VAO);
+	glDrawElements(GL_TRIANGLES, shape->indicesSize, GL_UNSIGNED_INT, (void*)0);
 }
 
 
@@ -257,10 +268,10 @@ Shape getSquare(int x, int y, float* color) {
 	float size = 0.5;
 
 	float vertices[] = {
-		x - size, y + size, 0,
-		x - size, y - size, 0,
-		x + size, y - size, 0,
-		x + size, y + size, 0,
+		-size, size, 0,
+		-size, -size, 0,
+		size, -size, 0,
+		size, size, 0,
 	};
 
 	unsigned int indices[] = {
@@ -278,6 +289,7 @@ Shape getSquare(int x, int y, float* color) {
 	square.indicesSize = sizeof(indices);
 
 	square.VAO = setupVAO(vertices, sizeof(vertices), indices, sizeof(indices), colors);
+	square.model = glm::translate(glm::vec3(x, y, 0));
 
 	return square;
 }
@@ -311,14 +323,15 @@ Shape* getGrid(int i, int j) {
 
 void drawGrid(Shape* grid, int i, int j) {
 	for (int k = 0; k < i * j; k++) {
-		drawShape(grid[k]);
+		glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(grid[k].model));
+		drawShape(&grid[k]);
 	}
 }
 
 
-Shape extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors) {
+Shape* extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors) {
 	// Important note: extrudeShape is designed to work with the vertices on the edge being created in a counter clockwise order
-	Shape shape;
+	Shape* shape = new Shape;
 	std::vector<float> extruded_vertices;
 	std::vector<unsigned int> extruded_indices;
 	std::vector<float> extruded_colors;
@@ -370,16 +383,15 @@ Shape extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int
 		}
 	}
 
-	shape.indicesSize = extruded_indices.size();
-
-	shape.VAO = setupVAO(&extruded_vertices.front(), extruded_vertices.size(), &extruded_indices.front(), extruded_indices.size(), &extruded_colors.front());
+	shape->indicesSize = extruded_indices.size();
+	shape->VAO = setupVAO(&extruded_vertices.front(), extruded_vertices.size(), &extruded_indices.front(), extruded_indices.size(), &extruded_colors.front());
 
 	return shape;
 }
 
 
-Shape getCircle(glm::vec3 center, float* color) {
-	Shape circle;
+Shape* getCircle(glm::vec3 center, float* color) {
+	Shape* circle;
 	float size = 0.3;
 	glm::vec3 rad = { size, 0, 0 };
 
@@ -392,8 +404,8 @@ Shape getCircle(glm::vec3 center, float* color) {
 	unsigned int* indices = new unsigned int[indicesSize];
 	float* colors = new float[verticesSize];
 
-	glm::mat3 rotate = glm::mat3(glm::rotate((float)1.8*PI / res, zaxis));
-	glm::vec3 pos = center;
+	glm::mat3 rotate = glm::mat3(glm::rotate((float)1.6*PI / res, zaxis));
+	glm::vec3 pos = glm::vec3(0, 0, 0);
 
 	// set up the vertices, one in center and the rest on the circle circumference 
 	for (int i = 0; i < (res + 1); i++) {
@@ -406,7 +418,7 @@ Shape getCircle(glm::vec3 center, float* color) {
 		colors[3 * i + 2] = color[2];
 
 		rad = rotate * rad;
-		pos = center + rad;
+		pos = rad;
 	}
 
 	//set up indices in counter clockwise drawing order
@@ -417,6 +429,7 @@ Shape getCircle(glm::vec3 center, float* color) {
 	}
 
 	circle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+	circle->model = glm::translate(center);
 
 	delete[] vertices;
 	delete[] indices;
@@ -426,16 +439,16 @@ Shape getCircle(glm::vec3 center, float* color) {
 }
 
 
-Shape getTriangle(glm::vec3 center, float* color) {
-	Shape triangle;
+Shape* getTriangle(glm::vec3 center, float* color) {
+	Shape* triangle;
 	float size = 0.3;
 	const int verticesSize = 3 * 3;
 	const int indicesSize = 3;
 
 	float vertices[verticesSize] = {
-		center.x, center.y + size, center.z,
-		center.x - size, center.y - size, center.z,
-		center.x + size, center.y - size, center.z
+		0, size, 0,
+		-size, -size, 0,
+		size, -size, 0
 	};
 
 	unsigned int indices[indicesSize] = { 0, 1, 2 };
@@ -447,6 +460,7 @@ Shape getTriangle(glm::vec3 center, float* color) {
 	}
 
 	triangle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+	triangle->model = glm::translate(center);
 
 	delete[] colors;
 
@@ -454,19 +468,19 @@ Shape getTriangle(glm::vec3 center, float* color) {
 }
 
 
-Shape getHexagon(glm::vec3 center, float* color) {
-	Shape hexagon;
+Shape* getHexagon(glm::vec3 center, float* color) {
+	Shape* hexagon;
 	float size = 0.3;
 	const int verticesSize = 6 * 3;
 	const int indicesSize = 4 * 3;
 
 	float vertices[verticesSize] = {
-		center.x - size, center.y, center.z,
-		center.x - size/2, center.y - size, center.z,
-		center.x + size/2, center.y - size, center.z,
-		center.x + size, center.y, center.z,
-		center.x + size/2, center.y + size, center.z,
-		center.x - size/2, center.y + size, center.z
+		-size, 0, 0,
+		-size/2, -size, 0,
+		size/2, -size, 0,
+		size, 0, 0,
+		size/2, size, 0,
+		-size/2, size, 0
 	};
 
 	unsigned int indices[indicesSize]{
@@ -483,6 +497,7 @@ Shape getHexagon(glm::vec3 center, float* color) {
 	}
 
 	hexagon = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+	hexagon->model = glm::translate(center);
 
 	delete[] colors;
 
@@ -490,17 +505,17 @@ Shape getHexagon(glm::vec3 center, float* color) {
 }
 
 
-Shape getParallelogram(glm::vec3 center, float* color) {
-	Shape parallelogram;
+Shape* getParallelogram(glm::vec3 center, float* color) {
+	Shape* parallelogram;
 	float size = 0.3;
 	const int verticesSize = 4 * 3;
 	const int indicesSize = 2 * 3;
 
 	float vertices[verticesSize] = {
-		center.x - size, center.y - size, center.z,
-		center.x + size/2, center.y - size, center.z,
-		center.x + size, center.y + size, center.z,
-		center.x - size/2, center.y + size, center.z,
+		-size, -size, 0,
+		size/2,-size, 0,
+		size, size, 0,
+		-size/2, size, 0,
 	};
 
 	unsigned int indices[indicesSize]{
@@ -515,6 +530,7 @@ Shape getParallelogram(glm::vec3 center, float* color) {
 	}
 
 	parallelogram = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+	parallelogram->model = glm::translate(center);
 
 	delete[] colors;
 
@@ -522,19 +538,19 @@ Shape getParallelogram(glm::vec3 center, float* color) {
 }
 
 
-Shape getArrow(glm::vec3 center, float* color) {
-	Shape arrow;
+Shape* getArrow(glm::vec3 center, float* color) {
+	Shape* arrow;
 	float size = 0.3;
 	const int verticesSize = 6 * 3;
 	const int indicesSize = 4 * 3;
 
 	float vertices[verticesSize] = {
-		center.x, center.y + size, center.z,
-		center.x - size, center.y - size, center.z,
-		center.x - size / 2, center.y - size, center.z,
-		center.x, center.y + size / 2, center.z,
-		center.x + size / 2, center.y - size, center.z,
-		center.x + size, center.y - size, center.z
+		0, size, 0,
+		-size, -size, 0,
+		-size/2, -size, 0,
+		0, size/2, 0,
+		size/2, -size, 0,
+		size, -size, 0
 	};
 
 	unsigned int indices[indicesSize] = { 
@@ -551,6 +567,7 @@ Shape getArrow(glm::vec3 center, float* color) {
 	}
 
 	arrow = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+	arrow->model = glm::translate(center);
 
 	delete[] colors;
 
@@ -558,8 +575,8 @@ Shape getArrow(glm::vec3 center, float* color) {
 }
 
 
-Shape getStar(glm::vec3 center, float* color) {
-	Shape star;
+Shape* getStar(glm::vec3 center, float* color) {
+	Shape* star;
 	float size = 0.3;
 	const int verticesSize = 10 * 3;
 	const int indicesSize = 8 * 3;
@@ -573,11 +590,11 @@ Shape getStar(glm::vec3 center, float* color) {
 	float* vertices = new float[verticesSize];
 
 	for (int i = 0; i < 5; i++) {  // only count to 5 since we do 2 vertices at a time, and all 3 components each iteration
-		pos = center + rad;
+		pos = rad;
 		vertices[6 * i] = pos.x; vertices[6 * i + 1] = pos.y; vertices[6 * i + 2] = pos.z;
 		rad = rotate * rad;
 		halfRad = scale * rad;
-		pos = center + halfRad;
+		pos = halfRad;
 		vertices[6 * i + 3] = pos.x; vertices[6 * i + 4] = pos.y; vertices[6 * i + 5] = pos.z;
 		rad = rotate * rad;
 	}
@@ -600,9 +617,47 @@ Shape getStar(glm::vec3 center, float* color) {
 	}
 
 	star = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
+	star->model = glm::translate(center);
 
 	delete[] vertices;
 	delete[] colors;
 
 	return star;
+}
+
+
+void moveShape(Shape* shape, glm::vec3 direction, float time) {
+	if (shape->distanceLeft > 0){
+		glm::mat3 scale = glm::mat3(glm::scale(glm::vec3(time)));
+		glm::vec3 increment = direction*scale;
+		glm::mat4 translate = glm::translate(increment);
+
+		translate = translate*shape->model;
+
+		shape->model = translate;
+		shape->distanceLeft -= time;
+	}
+}
+
+// In order to be able to calculate when the getTimeDeltaSeconds() function was last called, we need to know the point in time when that happened. This requires us to keep hold of that point in time. 
+// We initialise this value to the time at the start of the program.
+static std::chrono::steady_clock::time_point _previousTimePoint = std::chrono::steady_clock::now();
+
+// Calculates the elapsed time since the previous time this function was called.
+float getTimeDeltaSeconds() {
+	// Determine the current time
+	std::chrono::steady_clock::time_point currentTime = std::chrono::steady_clock::now();
+	// Look up the time when the previous call to this function occurred.
+	std::chrono::steady_clock::time_point previousTime = _previousTimePoint;
+
+	// Calculate the number of nanoseconds that elapsed since the previous call to this function
+	long long timeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(currentTime - _previousTimePoint).count();
+	// Convert the time delta in nanoseconds to seconds
+	double timeDeltaSeconds = (double)timeDelta / 1000000000.0;
+
+	// Store the previously measured current time
+	_previousTimePoint = currentTime;
+
+	// Return the calculated time delta in seconds
+	return (float)timeDeltaSeconds;
 }
