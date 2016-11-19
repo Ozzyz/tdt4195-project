@@ -19,6 +19,8 @@ float PI = 3.14159265358979323846;
 float distance = 0.5;
 bool keys_pressed[1024];
 float timer = 0.0;
+bool selectPressed = false;
+glm::vec3 lastDir;
 
 float red[3] = { 1, 0, 0 };
 float blue[3] = { 0, 0, 1 };
@@ -33,7 +35,12 @@ struct Shape {
 	int indicesSize;
 	glm::mat4 model = glm::mat4(1.0);
 	float distanceLeft = 0.0;
+	glm::vec3 direction = glm::vec3(0);
+	glm::vec2 pos;
 };
+
+Shape selector;
+Shape* selected;
 
 GLuint setupVAO(float*, int, unsigned int*, int, float*);
 glm::mat4 getView();
@@ -42,7 +49,7 @@ void check_pressed_keys();
 void drawGrid(Shape* grid, int i, int j);
 void drawShape(Shape* shape);
 
-Shape getSquare(int x, int y, float*);
+Shape getSquare(int x, int y, float* color);
 Shape* getGrid(int i, int j);
 
 Shape* extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors);
@@ -54,6 +61,9 @@ Shape* getParallelogram(glm::vec3 center, float* color);
 Shape* getArrow(glm::vec3 center, float* color);
 Shape* getStar(glm::vec3 center, float* color);
 void moveShape(Shape* shape, glm::vec3 direction, float time);
+void moveSelector(glm::vec3 direction);
+void moveSelected(glm::vec3 direction);
+void select();
 float getTimeDeltaSeconds();
 
 std::vector<Shape*> shapes;
@@ -61,10 +71,12 @@ std::vector<Shape*> shapes;
 glm::vec3 cameraPos = glm::vec3(0.0, 0.0, 50.0);  //xyz
 glm::vec3 cameraDirection = glm::vec3(0.0, 0.0, -1.0);  //vector indication direction camera points, used for movement relative to camera
 glm::vec3 up = glm::vec3(0.0, 1.0, 0.0); //global up, used to recalculate cameraRight
+glm::vec3 down = glm::vec3(0.0, -1.0, 0.0);
+glm::vec3 left = glm::vec3(-1.0, 0.0, 0.0);
+glm::vec3 right = glm::vec3(1.0, 0.0, 0.0);
 glm::vec3 cameraRight = glm::cross(up, cameraDirection);  //right vector relative to camera, for relative movement
 glm::vec2 orientation(0.0, 0.0);  //store the camera rotation on the x and y axis
 glm::vec3 zaxis(0, 0, 1);
-
 
 void runProgram(GLFWwindow* window)
 {
@@ -87,7 +99,10 @@ void runProgram(GLFWwindow* window)
 	// Boolean for more simple activation or deactivaton of shader when testing
 	bool shaderON = true;
 
+	selector = getSquare(0, 0, black);
 	Shape* grid = getGrid(8, 5);
+
+	selector.model = glm::translate(glm::vec3(0, 0, 0.6))*glm::scale(glm::vec3(0.2));
 
 	shapes.push_back(getCircle(glm::vec3(7, 4, distance), red));
 	shapes.push_back(getTriangle(glm::vec3(5, 2, distance), purple));
@@ -122,11 +137,14 @@ void runProgram(GLFWwindow* window)
 
 		drawGrid(grid, 8, 5);
 
+		glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(selector.model));
+		drawShape(&selector);
+
 		float time = getTimeDeltaSeconds();
 		timer += time;
 		
 		for (Shape* shape : shapes) {
-			moveShape(shape, up, time);
+			moveShape(shape, shape->direction, time);
 			glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(shape->model));
 			drawShape(shape);
 		}
@@ -254,6 +272,40 @@ void check_pressed_keys() {
 	if (keys_pressed[GLFW_KEY_LEFT_CONTROL]) {
 		cameraPos.y -= moveSpeed;
 	}
+
+	if (keys_pressed[GLFW_KEY_KP_6]) {
+		if (selected) moveSelected(right);
+		else moveSelector(right);
+		lastDir = right;
+	}
+
+	else if (keys_pressed[GLFW_KEY_KP_4]) {
+		if (selected) moveSelected(left);
+		else moveSelector(left);
+		lastDir = left;
+	}
+
+	else if (keys_pressed[GLFW_KEY_KP_8]) {
+		if (selected) moveSelected(up);
+		else moveSelector(up);
+		lastDir = up;
+	}
+
+	else if (keys_pressed[GLFW_KEY_KP_2]) {
+		if (selected) moveSelected(down);
+		else moveSelector(down);
+		lastDir = down;
+	}
+
+	else if (keys_pressed[GLFW_KEY_ENTER]) {
+		select();
+		selectPressed = true;
+	}
+
+	else {
+		lastDir = glm::vec3(0);
+		selectPressed = false;
+	}
 }
 
 
@@ -290,6 +342,7 @@ Shape getSquare(int x, int y, float* color) {
 
 	square.VAO = setupVAO(vertices, sizeof(vertices), indices, sizeof(indices), colors);
 	square.model = glm::translate(glm::vec3(x, y, 0));
+	square.pos = glm::vec2(x, y);
 
 	return square;
 }
@@ -430,6 +483,7 @@ Shape* getCircle(glm::vec3 center, float* color) {
 
 	circle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 	circle->model = glm::translate(center);
+	circle->pos = glm::vec2(center);
 
 	delete[] vertices;
 	delete[] indices;
@@ -461,6 +515,7 @@ Shape* getTriangle(glm::vec3 center, float* color) {
 
 	triangle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 	triangle->model = glm::translate(center);
+	triangle->pos = glm::vec2(center);
 
 	delete[] colors;
 
@@ -498,6 +553,7 @@ Shape* getHexagon(glm::vec3 center, float* color) {
 
 	hexagon = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 	hexagon->model = glm::translate(center);
+	hexagon->pos = glm::vec2(center);
 
 	delete[] colors;
 
@@ -531,6 +587,7 @@ Shape* getParallelogram(glm::vec3 center, float* color) {
 
 	parallelogram = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 	parallelogram->model = glm::translate(center);
+	parallelogram->pos = glm::vec2(center);
 
 	delete[] colors;
 
@@ -568,6 +625,7 @@ Shape* getArrow(glm::vec3 center, float* color) {
 
 	arrow = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 	arrow->model = glm::translate(center);
+	arrow->pos = glm::vec2(center);
 
 	delete[] colors;
 
@@ -618,6 +676,7 @@ Shape* getStar(glm::vec3 center, float* color) {
 
 	star = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
 	star->model = glm::translate(center);
+	star->pos = glm::vec2(center);
 
 	delete[] vertices;
 	delete[] colors;
@@ -638,6 +697,41 @@ void moveShape(Shape* shape, glm::vec3 direction, float time) {
 		shape->distanceLeft -= time;
 	}
 }
+
+
+void moveSelector(glm::vec3 direction) {
+	if (direction != lastDir){
+		glm::mat4 translate = glm::translate(direction);
+		selector.model = translate*selector.model;
+		selector.pos += glm::vec2(direction);
+	}
+}
+
+
+void select() {
+	if (!selectPressed) {
+		if (selected != NULL) {
+			selected = NULL;
+			return;
+		}
+
+		for (Shape* shape : shapes) {
+			if (shape->pos.x == selector.pos.x && shape->pos.y == selector.pos.y) {
+				selected = shape;
+				return;
+			}
+		}
+	}
+}
+
+
+void moveSelected(glm::vec3 direction) {
+	selected->distanceLeft = 1.0;
+	selected->pos += glm::vec2(direction);
+	selected->direction = direction;
+	selected = NULL;
+}
+
 
 // In order to be able to calculate when the getTimeDeltaSeconds() function was last called, we need to know the point in time when that happened. This requires us to keep hold of that point in time. 
 // We initialise this value to the time at the start of the program.
