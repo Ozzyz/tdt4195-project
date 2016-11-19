@@ -56,16 +56,16 @@ def ratio(cnt):
 def match_shape(contour):
     """Return name of a shape based on its contours
     """
-    vertices, rat = ratio(contour)
+    vertices, area_perim_ratio = ratio(contour)
     if vertices == 3:
         shape = "Triangle"
     elif vertices == 4:
-        if rat < 6:
+        if area_perim_ratio < 6:
             shape = "Arrow"
         else:
             shape = "Paralellogram"
     elif vertices == 6:
-        if rat > 12:
+        if area_perim_ratio > 12:
             shape = "Hexagon"
         else:
             shape = "Pacman"
@@ -105,8 +105,8 @@ if __name__ == "__main__":
     
     # Find all contours
     contours = find_contours(grown)
-    image_before_filter = draw_contours(img, contours)
-
+    
+    # Filter contours
     filtered_contours = filter_contours(contours)
     
     # Draw contours
@@ -115,9 +115,7 @@ if __name__ == "__main__":
     # Match shapes
     matches = [( match_shape(cnt), find_centroid(cnt) ) for cnt in filtered_contours]
 
-    import pprint
-    pprint.PrettyPrinter().pprint(sorted(matches, key=lambda x: x[0]))
-    
+    # Write output files
     fn = sys.argv[1].split("/")
     with open("shapes_and_centroids/" + fn[1] + ".txt", "w") as f:
         for m in matches:
@@ -131,13 +129,9 @@ if __name__ == "__main__":
     for m in matches:
         x,y = m[1]
         cv2.putText(img_shapes, m[0], (x-25, y), cv2.FONT_ITALIC, 0.4, (0,255,0))
-    cv2.imshow("test", img_shapes)
-    cv2.imshow("after contour filter", contoured_img)
-    cv2.waitKey()
    
-    # Show image
-    #plot(grown, "region grown")
-    #cv2.imshow("contoured image", contoured_img)
-    #cv2.imshow("image with centroids", img_centroids)
-    #cv2.waitKey()
+    # Display images
+    cv2.imshow("shapes", img_shapes)
+    cv2.imshow("asdasda", contoured_img)
+    cv2.waitKey()
 
