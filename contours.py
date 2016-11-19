@@ -46,9 +46,11 @@ def show_contoured_image(img):
     cv2.imshow("asd", c_img)
     cv2.waitKey()
 
-def ratio(cnt): 
+def ratio(cnt):
+    # Estimate accuracy of perimeter to 4% 
     epsilon = 0.04 * cv2.arcLength(cnt, True)
-    approx = cv2.approxPolyDP(cnt, epsilon, True) 
+    # Approximate contour with polygon 
+    approx = cv2.approxPolyDP(cnt, epsilon, True)
     vertices = len(approx)
     ratio = cv2.contourArea(cnt) / cv2.arcLength(cnt, True)
     return vertices, ratio
@@ -56,16 +58,16 @@ def ratio(cnt):
 def match_shape(contour):
     """Return name of a shape based on its contours
     """
-    vertices, rat = ratio(contour)
+    vertices, area_perim_ratio = ratio(contour)
     if vertices == 3:
         shape = "Triangle"
     elif vertices == 4:
-        if rat < 6:
+        if area_perim_ratio < 6:
             shape = "Arrow"
         else:
             shape = "Paralellogram"
     elif vertices == 6:
-        if rat > 12:
+        if area_perim_ratio > 12:
             shape = "Hexagon"
         else:
             shape = "Pacman"
