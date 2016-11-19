@@ -77,23 +77,37 @@ def read_seeds(filepath):
 
 if __name__ == "__main__":
     import sys
-    img = cv2.imread(sys.argv[1])
-    #img = cv2.medianBlur(img, 5)
-    seeds = read_seeds(sys.argv[2])
+    if len(sys.argv) == 3:
+        img = cv2.imread(sys.argv[1])
+        seeds = read_seeds(sys.argv[2])
+    else:
+        print("Usage: contours.py <imagepath> <seedspath>")
+        sys.exit()
+
+    # Region grow
     grown = region_grow(img, seeds, 40)
-    c = filter_contours(find_contours(grown))
-    c_img = draw_contours(img, [cnt for cnt in c])
-    centroids = find_centroids(c)
-    print(centroids)
+    
+    # Find all contours
+    contours = filter_contours(find_contours(grown))
+    
+    # Draw contours
+    contoured_img = draw_contours(img, [cnt for cnt in contours])
+    
+    # Find centroids 
+    centroids = find_centroids(contours)
+    
+    # Draw centroids
     img_with_centroids = draw_centroids(img, centroids)
 
+    # Match shapes
     matches = []
-    for cnt in c:
+    for cnt in contours:
         matches.append(match_shape(cnt))
     import pprint
     pprint.PrettyPrinter().pprint(sorted(matches, key=lambda x: x[1]))
-    
-    cv2.imshow("asd", c_img)
+   
+    # Show image
+    cv2.imshow("asd", contoured_img)
     cv2.waitKey()
 
     
