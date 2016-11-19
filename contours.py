@@ -51,8 +51,10 @@ def show_contoured_image(img):
     cv2.waitKey()
 
 def ratio(cnt):
+    
     y,x,w,h = cv2.boundingRect(cnt)
-    return (w*h - cv2.contourArea(cnt)) / cv2.arcLength(cnt, True)
+    bnd_rect_area = w*h - cv2.contourArea(cnt) 
+    return (cv2.contourArea(cnt) / cv2.arcLength(cnt, True) + bnd_rect_area
     
 def match_shape(contour):
     shapes = {
