@@ -8,6 +8,14 @@
 #include <glad/glad.h>
 #include <string>
 
+#include "gloom/gloom.hpp"
+#include "gloom/shader.hpp"
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/vec3.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <vector>
 
 // Main OpenGL program
 void runProgram(GLFWwindow* window);

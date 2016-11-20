@@ -1,26 +1,16 @@
 // Local headers
 #include "program.hpp"
-#include "gloom/gloom.hpp"
-#include "gloom/shader.hpp"
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/transform.hpp>
-#include <glm/vec3.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
-#include <vector>
-#include <string>
+#include "Shapes.hpp"
 #include <sstream>
 #include <fstream>
 #include <vector>
 #include <chrono>
 
-float PI = 3.14159265358979323846;
-float distance = 0.5;
-bool keys_pressed[1024];
-float timer = 0.0;
-bool selectPressed = false;
-glm::vec3 lastDir;
+float distance = 0.5;  // Distance between shapes (front face) and the board face
+bool keys_pressed[1024];  // Keep track of keys pressed
+float timer = 0.0;  // Timer for use with time based animations
+bool selectPressed = false;  // Boolean to allow for toggle functionality of the select button
+glm::vec3 lastDir;  // Maintain the last direction a piece was moved to allow step by step movements
 
 float red[3] = { 1, 0, 0 };
 float blue[3] = { 0, 0, 1 };
@@ -30,40 +20,20 @@ float yellow[3] = { 1, 1, 0 };
 float purple[3] = { 1, 0, 1 };
 float green[3] = { 0, 1, 0 };
 
-struct Shape {
-	GLuint VAO;
-	int indicesSize;
-	glm::mat4 model = glm::mat4(1.0);
-	float distanceLeft = 0.0;
-	glm::vec3 direction = glm::vec3(0);
-	glm::vec2 pos;
-};
+Shape selector;  // Shape for the selector tool
+Shape* selected; // Shape ponter storing the currently selected shape
 
-Shape selector;
-Shape* selected;
-
-GLuint setupVAO(float*, int, unsigned int*, int, float*);
-glm::mat4 getView();
+glm::mat4 getView(); // Returns the view matrix for camera control
 void check_pressed_keys();
 
 void drawGrid(Shape* grid, int i, int j);
 void drawShape(Shape* shape);
 
-Shape getSquare(int x, int y, float* color);
-Shape* getGrid(int i, int j);
-
-Shape* extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors);
-
-Shape* getCircle(glm::vec3 center, float* color);
-Shape* getTriangle(glm::vec3 center, float* color);
-Shape* getHexagon(glm::vec3 center, float* color);
-Shape* getParallelogram(glm::vec3 center, float* color);
-Shape* getArrow(glm::vec3 center, float* color);
-Shape* getStar(glm::vec3 center, float* color);
 void moveShape(Shape* shape, glm::vec3 direction, float time);
 void moveSelector(glm::vec3 direction);
 void moveSelected(glm::vec3 direction);
 void select();
+
 float getTimeDeltaSeconds();
 
 void splitAll(const std::string &s, char delim, std::vector<std::string> &elems);
@@ -79,7 +49,7 @@ glm::vec3 left = glm::vec3(-1.0, 0.0, 0.0);
 glm::vec3 right = glm::vec3(1.0, 0.0, 0.0);
 glm::vec3 cameraRight = glm::cross(up, cameraDirection);  //right vector relative to camera, for relative movement
 glm::vec2 orientation(0.0, 0.0);  //store the camera rotation on the x and y axis
-glm::vec3 zaxis(0, 0, 1);
+
 
 void runProgram(GLFWwindow* window)
 {
@@ -96,7 +66,7 @@ void runProgram(GLFWwindow* window)
 		float x = atof(line_content.at(1).c_str()) - 50;
 		x = round(x / 100);
 		float y = atof(line_content.at(2).c_str())-50;
-		y = round((400-y) / 100);
+		y = round((400-y) / 100);  // The grid y-axis is inverted compared to image pixel position
 
 		if (name == "Pacman") {
 			shapes.push_back(getCircle(glm::vec3(x, y, distance), red));
@@ -171,14 +141,15 @@ void runProgram(GLFWwindow* window)
 			glUniformMatrix4fv(4, 1, GL_FALSE, glm::value_ptr(projection));
 		}
 
-		drawGrid(grid, 8, 5);
+		drawGrid(grid, 8, 5);  // Draw an 8x5 grid
 
-		glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(selector.model));
-		drawShape(&selector);
+		glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(selector.model));  // Poass selector model matrix to shader
+		drawShape(&selector);  // Draw selector tool
 
-		float time = getTimeDeltaSeconds();
-		timer += time;
+		float time = getTimeDeltaSeconds();  // Get time passed each frame
+		timer += time;  // Update timer
 		
+		// Iterate through the shape vector, update their movement animation and draw them
 		for (Shape* shape : shapes) {
 			moveShape(shape, shape->direction, time);
 			glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(shape->model));
@@ -309,6 +280,7 @@ void check_pressed_keys() {
 		cameraPos.y -= moveSpeed;
 	}
 
+	// Keys pressed for movement of selector tool or shape
 	if (keys_pressed[GLFW_KEY_KP_6]) {
 		if (selected) moveSelected(right);
 		else moveSelector(right);
@@ -333,417 +305,46 @@ void check_pressed_keys() {
 		lastDir = down;
 	}
 
+	// Key pressed for selection
 	else if (keys_pressed[GLFW_KEY_ENTER]) {
 		select();
 		selectPressed = true;
 	}
 
+	// Reset the direction and selection boolean of neither of the keys are pressed
 	else {
 		lastDir = glm::vec3(0);
 		selectPressed = false;
 	}
 }
 
-
-void drawShape(Shape* shape) {
-	glBindVertexArray(shape->VAO);
-	glDrawElements(GL_TRIANGLES, shape->indicesSize, GL_UNSIGNED_INT, (void*)0);
-}
-
-
-Shape getSquare(int x, int y, float* color) {
-	Shape square;
-	float size = 0.5;
-
-	float vertices[] = {
-		-size, size, 0,
-		-size, -size, 0,
-		size, -size, 0,
-		size, size, 0,
-	};
-
-	unsigned int indices[] = {
-		0, 1, 2,
-		3, 0, 2
-	};
-
-	float colors[] = {
-		color[0], color[1], color[2],
-		color[0], color[1], color[2],
-		color[0], color[1], color[2],
-		color[0], color[1], color[2],
-	};
-
-	square.indicesSize = sizeof(indices);
-
-	square.VAO = setupVAO(vertices, sizeof(vertices), indices, sizeof(indices), colors);
-	square.model = glm::translate(glm::vec3(x, y, 0));
-	square.pos = glm::vec2(x, y);
-
-	return square;
-}
-
-
-Shape* getGrid(int i, int j) {
-	Shape* grid = new Shape[i * j];
-	float color1[3] = { 0, 0, 0.8 };
-	float color2[3] = { 0.8, 0, 0 };
-	float* color = new float[3];
-	color = color2;
-
-	for (int x = 0; x < 8; x++) {
-		for (int y = 0; y < 5; y++) {
-			if (color == color1) {
-				color = color2;
-			}
-
-			else if (color == color2) {
-				color = color1;
-			}
-
-			Shape square = getSquare(x, y, color);
-			grid[y * 8 + x] = square;
-		}
-	}
-
-	return grid;
-}
-
-
-void drawGrid(Shape* grid, int i, int j) {
-	for (int k = 0; k < i * j; k++) {
-		glUniformMatrix4fv(2, 1, GL_FALSE, glm::value_ptr(grid[k].model));
-		drawShape(&grid[k]);
-	}
-}
-
-
-Shape* extrudeShape(float* vertices, int verticesSize, unsigned int* indices, int indicesSize, float* colors) {
-	// Important note: extrudeShape is designed to work with the vertices on the edge being created in a counter clockwise order
-	Shape* shape = new Shape;
-	std::vector<float> extruded_vertices;
-	std::vector<unsigned int> extruded_indices;
-	std::vector<float> extruded_colors;
-
-	int vertexCount = verticesSize / 3;
-
-	for (int i = 0; i < verticesSize; i++) {
-		extruded_vertices.push_back(vertices[i]);
-	}
-
-	for (int i = 0; i < verticesSize; i++) {
-		if (i % 3 == 2) extruded_vertices.push_back(vertices[i] - 0.5);
-		else extruded_vertices.push_back(vertices[i]);
-	}
-
-	for (int j = 0; j < indicesSize; j++) {
-		extruded_indices.push_back(indices[j]);
-	}
-
-	for (int j = 0; j < indicesSize/3; j++) {
-		extruded_indices.push_back(indices[j*3 + 2] + vertexCount);
-		extruded_indices.push_back(indices[j*3 + 1] + vertexCount);
-		extruded_indices.push_back(indices[j*3 + 0] + vertexCount);
-	}
-
-	// indices for drawing extruded sides between last and first vertex
-	extruded_indices.push_back(0);
-	extruded_indices.push_back(vertexCount-1);
-	extruded_indices.push_back(2*vertexCount-1);
-
-	extruded_indices.push_back(vertexCount);
-	extruded_indices.push_back(0);
-	extruded_indices.push_back(2 * vertexCount - 1);
-
-	// indices for drawing the rest of the extruded sides
-	for (int j = 0; j < vertexCount - 1; j++) {
-		extruded_indices.push_back(j);
-		extruded_indices.push_back(j + vertexCount);
-		extruded_indices.push_back(j + 1 + vertexCount);
-		
-		extruded_indices.push_back(j + 1);
-		extruded_indices.push_back(j);
-		extruded_indices.push_back(j + 1 + vertexCount);
-	}
-
-	for (int u = 0; u < 2; u++) {
-		for (int k = 0; k < verticesSize; k++) {
-			extruded_colors.push_back(colors[k]);
-		}
-	}
-
-	shape->indicesSize = extruded_indices.size();
-	shape->VAO = setupVAO(&extruded_vertices.front(), extruded_vertices.size(), &extruded_indices.front(), extruded_indices.size(), &extruded_colors.front());
-
-	return shape;
-}
-
-
-Shape* getCircle(glm::vec3 center, float* color) {
-	Shape* circle;
-	float size = 0.3;
-	glm::vec3 rad = { size, 0, 0 };
-
-	const int res = 40;  //number of vertices on circle radius
-
-	const int verticesSize = (res + 1) * 3;
-	const int indicesSize = (res - 1) * 3;
-
-	float* vertices = new float[verticesSize];
-	unsigned int* indices = new unsigned int[indicesSize];
-	float* colors = new float[verticesSize];
-
-	glm::mat3 rotate = glm::mat3(glm::rotate((float)1.6*PI / res, zaxis));
-	glm::vec3 pos = glm::vec3(0, 0, 0);
-
-	// set up the vertices, one in center and the rest on the circle circumference 
-	for (int i = 0; i < (res + 1); i++) {
-		vertices[3 * i] = pos.x;
-		vertices[3 * i + 1] = pos.y;
-		vertices[3 * i + 2] = pos.z;
-
-		colors[3 * i] = color[0];
-		colors[3 * i + 1] = color[1];
-		colors[3 * i + 2] = color[2];
-
-		rad = rotate * rad;
-		pos = rad;
-	}
-
-	//set up indices in counter clockwise drawing order
-	for (int j = 0; j < res - 1; j++) {
-		indices[j * 3] = j + 2;
-		indices[j * 3 + 1] = 0;
-		indices[j * 3 + 2] = j + 1;
-	}
-
-	circle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
-	circle->model = glm::translate(center);
-	circle->pos = glm::vec2(center);
-
-	delete[] vertices;
-	delete[] indices;
-	delete[] colors;
-
-	return circle;
-}
-
-
-Shape* getTriangle(glm::vec3 center, float* color) {
-	Shape* triangle;
-	float size = 0.3;
-	const int verticesSize = 3 * 3;
-	const int indicesSize = 3;
-
-	float vertices[verticesSize] = {
-		0, size, 0,
-		-size, -size, 0,
-		size, -size, 0
-	};
-
-	unsigned int indices[indicesSize] = { 0, 1, 2 };
-
-	float* colors = new float[verticesSize];
-
-	for (int i = 0; i < verticesSize; i++) {
-		colors[i] = color[i % 3];
-	}
-
-	triangle = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
-	triangle->model = glm::translate(center);
-	triangle->pos = glm::vec2(center);
-
-	delete[] colors;
-
-	return triangle;
-}
-
-
-Shape* getHexagon(glm::vec3 center, float* color) {
-	Shape* hexagon;
-	float size = 0.3;
-	const int verticesSize = 6 * 3;
-	const int indicesSize = 4 * 3;
-
-	float vertices[verticesSize] = {
-		-size, 0, 0,
-		-size/2, -size, 0,
-		size/2, -size, 0,
-		size, 0, 0,
-		size/2, size, 0,
-		-size/2, size, 0
-	};
-
-	unsigned int indices[indicesSize]{
-		0, 1, 2,
-		2, 3, 4,
-		4, 5, 0,
-		0, 2, 4
-	};
-
-	float* colors = new float[verticesSize];
-
-	for (int i = 0; i < verticesSize; i++) {
-		colors[i] = color[i % 3];
-	}
-
-	hexagon = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
-	hexagon->model = glm::translate(center);
-	hexagon->pos = glm::vec2(center);
-
-	delete[] colors;
-
-	return hexagon;
-}
-
-
-Shape* getParallelogram(glm::vec3 center, float* color) {
-	Shape* parallelogram;
-	float size = 0.3;
-	const int verticesSize = 4 * 3;
-	const int indicesSize = 2 * 3;
-
-	float vertices[verticesSize] = {
-		-size, -size, 0,
-		size/2,-size, 0,
-		size, size, 0,
-		-size/2, size, 0,
-	};
-
-	unsigned int indices[indicesSize]{
-		0, 1, 2,
-		0, 2, 3,
-	};
-
-	float* colors = new float[verticesSize];
-
-	for (int i = 0; i < verticesSize; i++) {
-		colors[i] = color[i % 3];
-	}
-
-	parallelogram = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
-	parallelogram->model = glm::translate(center);
-	parallelogram->pos = glm::vec2(center);
-
-	delete[] colors;
-
-	return parallelogram;
-}
-
-
-Shape* getArrow(glm::vec3 center, float* color) {
-	Shape* arrow;
-	float size = 0.3;
-	const int verticesSize = 6 * 3;
-	const int indicesSize = 4 * 3;
-
-	float vertices[verticesSize] = {
-		0, size, 0,
-		-size, -size, 0,
-		-size/2, -size, 0,
-		0, size/2, 0,
-		size/2, -size, 0,
-		size, -size, 0
-	};
-
-	unsigned int indices[indicesSize] = { 
-		0, 1, 3,
-		3, 1, 2,
-		3, 4, 5,
-		0, 3, 5
-	};
-
-	float* colors = new float[verticesSize];
-
-	for (int i = 0; i < verticesSize; i++) {
-		colors[i] = color[i % 3];
-	}
-
-	arrow = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
-	arrow->model = glm::translate(center);
-	arrow->pos = glm::vec2(center);
-
-	delete[] colors;
-
-	return arrow;
-}
-
-
-Shape* getStar(glm::vec3 center, float* color) {
-	Shape* star;
-	float size = 0.3;
-	const int verticesSize = 10 * 3;
-	const int indicesSize = 8 * 3;
-
-	glm::vec3 rad = { 0, size, 0 };
-	glm::vec3 halfRad;
-	glm::mat3 rotate = glm::mat3(glm::rotate((float)2*PI/10, zaxis));
-	glm::mat3 scale = glm::mat3(glm::scale(glm::vec3(0.5, 0.5, 0.5)));
-	glm::vec3 pos;
-
-	float* vertices = new float[verticesSize];
-
-	for (int i = 0; i < 5; i++) {  // only count to 5 since we do 2 vertices at a time, and all 3 components each iteration
-		pos = rad;
-		vertices[6 * i] = pos.x; vertices[6 * i + 1] = pos.y; vertices[6 * i + 2] = pos.z;
-		rad = rotate * rad;
-		halfRad = scale * rad;
-		pos = halfRad;
-		vertices[6 * i + 3] = pos.x; vertices[6 * i + 4] = pos.y; vertices[6 * i + 5] = pos.z;
-		rad = rotate * rad;
-	}
-
-	unsigned int indices[indicesSize] = { 
-		0, 1, 9,
-		2, 3, 1,
-		4, 5, 3,
-		6, 7, 5,
-		8, 9, 7,
-		1, 5, 9,
-		1, 3, 5,
-		9, 5, 7
-	};
-
-	float* colors = new float[verticesSize];
-
-	for (int i = 0; i < verticesSize; i++) {
-		colors[i] = color[i % 3];
-	}
-
-	star = extrudeShape(vertices, verticesSize, indices, indicesSize, colors);
-	star->model = glm::translate(center);
-	star->pos = glm::vec2(center);
-
-	delete[] vertices;
-	delete[] colors;
-
-	return star;
-}
-
-
+// Moves a shape in it's given direction if it still has some distance from the target
 void moveShape(Shape* shape, glm::vec3 direction, float time) {
 	if (shape->distanceLeft > 0){
-		glm::mat3 scale = glm::mat3(glm::scale(glm::vec3(time)));
+		glm::mat3 scale = glm::mat3(glm::scale(glm::vec3(time)));  // Scale the movement depending on the time passed
 		glm::vec3 increment = direction*scale;
 		glm::mat4 translate = glm::translate(increment);
 
 		translate = translate*shape->model;
 
 		shape->model = translate;
-		shape->distanceLeft -= time;
+		shape->distanceLeft -= time;  // Shrink the distance a shape has left to travel by the amount of time passed
 	}
 }
 
-
+// Moves the selector one position in the given direction
 void moveSelector(glm::vec3 direction) {
-	if (direction != lastDir){
-		glm::mat4 translate = glm::translate(direction);
-		selector.model = translate*selector.model;
-		selector.pos += glm::vec2(direction);
+	glm::vec2 pos = selector.pos + glm::vec2(direction);  // pre calculate position moved to
+	if (direction != lastDir) {
+		if (0 <= pos.x && pos.x <= 7 && 0 <= pos.y && pos.y <= 4) {  // restrics movement to inside of board
+			glm::mat4 translate = glm::translate(direction);
+			selector.model = translate*selector.model;
+			selector.pos = pos;
+		}
 	}
 }
 
-
+// Selects a piece if present on the current selector position. If one is already selected, unselect
 void select() {
 	if (!selectPressed) {
 		if (selected != NULL) {
@@ -761,11 +362,20 @@ void select() {
 }
 
 
+// Stores the desired destination for the currently selected shape for use with the moveShape function
 void moveSelected(glm::vec3 direction) {
-	selected->distanceLeft = 1.0;
-	selected->pos += glm::vec2(direction);
-	selected->direction = direction;
-	selected = NULL;
+	glm::vec2 pos = selected->pos + glm::vec2(direction);
+	if (0 <= pos.x && pos.x <= 7 && 0 <= pos.y && pos.y <= 4) {
+		for (Shape* shape : shapes) {
+			if (shape->pos.x == pos.x && shape->pos.y == pos.y) { // restrics movement to occupied field
+				return;
+			}
+		}
+		selected->distanceLeft = 1.0;
+		selected->pos = pos;
+		selected->direction = direction;
+		selected = NULL;
+	}
 }
 
 
